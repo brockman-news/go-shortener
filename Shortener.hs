@@ -12,6 +12,7 @@ import Network.URI
 import Network.Wai (Application, Request, responseLBS, pathInfo, queryString, strictRequestBody, requestMethod)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Parse
+import Network.Wai.Middleware.RequestLogger (logStdout)
 import Numeric (showIntAtBase)
 import System.Environment (lookupEnv)
 import qualified Data.ByteString.Char8 as B
@@ -39,7 +40,7 @@ main = do
     settings <- getSettings
     conn <- checkedConnect $ maybe defaultConnectInfo (\socketPath -> defaultConnectInfo {connectPort = UnixSocket socketPath}) $ redisSocket settings
     putStrLn $ "Starting server on http://localhost:" ++ show (port settings)
-    run (port settings) (app conn settings)
+    run (port settings) (logStdout $ app conn settings)
 
 app :: Connection -> Settings -> Application
 app conn settings req respond = do
@@ -62,6 +63,7 @@ app conn settings req respond = do
                 Just validUri -> do
                     let shortKey = take (keyLength settings) $ sha256Hash validUri
                     _ <- runRedis conn $ set (B.pack shortKey) (BL.toStrict validUri)
+                    putStrLn $ show shortKey <> " -> " <> show validUri
                     let shortenerEndpoint = endpoint settings
                     let shortUrl = packUri shortenerEndpoint {uriPath = '/':shortKey}
                     respond $ responseLBS status200 [(hContentType, "text/plain")] shortUrl
