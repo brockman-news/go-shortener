@@ -53,11 +53,13 @@
             Restart = "always";
             ExecStart = "${pkgs.go-shortener}/bin/go-shortener";
             DynamicUser = true;
+            SupplementaryGroups= "redis-go-shortener";
           };
           environment = {
             PORT = toString cfg.port;
             KEY_LENGTH = toString cfg.keyLength;
             ENDPOINT = toString cfg.endpoint;
+            REDIS_SOCKET = config.services.redis.servers.go-shortener.unixSocket;
           };
         };
       };

@@ -6,7 +6,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Digest.Pure.SHA (sha256, integerDigest)
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Database.Redis (Connection, checkedConnect, runRedis, set, get, defaultConnectInfo)
+import Database.Redis (Connection, checkedConnect, runRedis, set, get, defaultConnectInfo, ConnectInfo(connectPort), PortID(UnixSocket))
 import Network.HTTP.Types (status200, status302, status400, status404, hLocation, hContentType)
 import Network.URI
 import Network.Wai (Application, Request, responseLBS, pathInfo, queryString, strictRequestBody, requestMethod)
@@ -21,6 +21,7 @@ data Settings = Settings
   { keyLength :: Int
   , port :: Int
   , endpoint :: URI
+  , redisSocket :: Maybe FilePath
   }
 
 getSettings :: IO Settings
@@ -28,6 +29,7 @@ getSettings = do
     port <- maybe 8080 read <$> lookupEnv "PORT"
     keyLength <- maybe 8 read <$> lookupEnv "KEY_LENGTH"
     maybeEndpointString <- lookupEnv "ENDPOINT"
+    redisSocket <- lookupEnv "REDIS_SOCKET"
     let defaultEndpoint = fromJust $ parseAbsoluteURI ("http://localhost:" ++ show port ++ "/")
     let endpoint = fromMaybe defaultEndpoint $ parseAbsoluteURI =<< maybeEndpointString
     return Settings {..}
@@ -35,7 +37,7 @@ getSettings = do
 main :: IO ()
 main = do
     settings <- getSettings
-    conn <- checkedConnect defaultConnectInfo
+    conn <- checkedConnect $ maybe defaultConnectInfo (\socketPath -> defaultConnectInfo {connectPort = UnixSocket socketPath}) $ redisSocket settings
     putStrLn $ "Starting server on http://localhost:" ++ show (port settings)
     run (port settings) (app conn settings)
 
