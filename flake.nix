@@ -6,16 +6,18 @@
   };
 
   outputs = { self, nixpkgs }: let
-    supportedSystems = [ "x86_64-linux" "aarcg64-linux" ];
+    supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-  in rec {
-    packages = forAllSystems (system:
-    let
-      pkgs = nixpkgs.legacyPackages.${system};
-      package = pkgs.haskellPackages.callPackage ./default.nix {};
-    in {
-      default = package;
-      go-shortener = package;
+  in {
+    overlays.default = self: super: {
+      go-shortener = self.haskellPackages.callPackage ./default.nix {};
+    };
+
+    packages = forAllSystems (system: {
+      default = (import nixpkgs {
+        inherit system;
+        overlays = [ self.overlays.default ];
+      }).go-shortener;
     });
 
     devShell = forAllSystems (system: let
@@ -33,10 +35,11 @@
         enable = mkEnableOption "go-shortener";
         port = mkOption { type = types.port; };
         keyLength = mkOption { type = types.int; default = 8; };
-        endpoint = mkOption { type = types.str; };
+        endpoint = mkOption { type = types.str; default = 8888; };
       };
 
       config = mkIf (cfg.enable) {
+        nixpkgs.overlays = [ self.overlays.default ];
         services.redis.servers.go-shortener.enable = true;
         services.redis.package = pkgs.valkey;
 
@@ -48,7 +51,7 @@
           serviceConfig = {
             Type = "simple";
             Restart = "always";
-            ExecStart = "${packages.${config.nixpkgs.hostPlatform.system}.go-shortener}/bin/go-shortener";
+            ExecStart = "${pkgs.go-shortener}/bin/go-shortener";
             DynamicUser = true;
           };
           environment = {
