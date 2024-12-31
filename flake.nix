@@ -45,6 +45,12 @@
         services.redis.servers.go-shortener.enable = true;
         services.redis.package = pkgs.valkey;
 
+        environment.systemPackages = [
+          (pkgs.writers.writeDashBin "redis-go-shortener" ''
+            ${pkgs.valkey}/bin/valkey-cli ${config.services.redis.servers.go-shortener.unixSocket} "$@"
+          '')
+        ];
+
         systemd.services.go-shortener = {
           description = "Simple URL shortener";
           wantedBy = [ "multi-user.target" ];
