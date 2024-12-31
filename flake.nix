@@ -24,7 +24,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
       package = pkgs.haskellPackages.callPackage ./default.nix {};
     in package.env.overrideAttrs (old: old // {
-      buildInputs = [ pkgs.cabal-install pkgs.cabal2nix ];
+      buildInputs = [ pkgs.cabal-install pkgs.cabal2nix pkgs.haskellPackages.ormolu ];
     }));
 
     nixosModules.default = { config, lib, pkgs, ... }:
