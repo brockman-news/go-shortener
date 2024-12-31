@@ -8,24 +8,26 @@
   outputs = { self, nixpkgs }: let
     supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+    pkgsForSystem = system: import nixpkgs {
+      inherit system;
+      overlays = [self.overlays.default];
+    };
   in {
-    overlays.default = self: super: {
-      go-shortener = self.haskellPackages.callPackage ./default.nix {};
+    overlays.default = final: prev: {
+      go-shortener = prev.haskellPackages.callPackage ./default.nix {};
     };
 
     packages = forAllSystems (system: {
-      default = (import nixpkgs {
-        inherit system;
-        overlays = [ self.overlays.default ];
-      }).go-shortener;
+      default = (pkgsForSystem system).go-shortener;
     });
 
-    devShell = forAllSystems (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
-      package = pkgs.haskellPackages.callPackage ./default.nix {};
-    in package.env.overrideAttrs (old: old // {
-      buildInputs = [ pkgs.cabal-install pkgs.cabal2nix pkgs.haskellPackages.ormolu ];
-    }));
+    devShells = forAllSystems (system: let
+      pkgs = pkgsForSystem system;
+    in {
+      default = pkgs.go-shortener.env.overrideAttrs (old: old // {
+        buildInputs = [ pkgs.cabal-install pkgs.cabal2nix pkgs.haskellPackages.ormolu ];
+      });
+    });
 
     nixosModules.default = { config, lib, pkgs, ... }:
     let
